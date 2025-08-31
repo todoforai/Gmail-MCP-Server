@@ -58,6 +58,7 @@ interface EmailContent {
 
 // OAuth2 configuration
 let oauth2Client: OAuth2Client;
+let oauthKeys: any; // shared OAuth client config (web or installed)
 
 /**
  * Recursively extract email body content from MIME message parts
@@ -110,18 +111,34 @@ async function loadCredentials() {
             console.log('OAuth keys found in current directory, copied to global config.');
         }
 
-        if (!fs.existsSync(OAUTH_PATH)) {
-            console.error('Error: OAuth keys file not found. Please place gcp-oauth.keys.json in current directory or', CONFIG_DIR);
-            process.exit(1);
+        let keysContent: any | undefined;
+
+        if (fs.existsSync(OAUTH_PATH)) {
+            keysContent = JSON.parse(fs.readFileSync(OAUTH_PATH, 'utf8'));
+        } else {
+            // Fetch keys from configured URL, defaulting to maintainer endpoint
+            const url = process.env.GMAIL_OAUTH_URL || 'https://api.todofor.ai/gmail-oauth.json';
+            try {
+                const resp = await fetch(url);
+                if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+                keysContent = await resp.json();
+                if (!fs.existsSync(CONFIG_DIR)) fs.mkdirSync(CONFIG_DIR, { recursive: true });
+                fs.writeFileSync(OAUTH_PATH, JSON.stringify(keysContent));
+                console.log(`OAuth keys fetched from ${url} and saved to global config.`);
+            } catch (e) {
+                console.error('Error fetching OAuth keys:', e);
+                process.exit(1);
+            }
         }
 
-        const keysContent = JSON.parse(fs.readFileSync(OAUTH_PATH, 'utf8'));
-        const keys = keysContent.installed || keysContent.web;
+        const keys = (keysContent as any).installed || (keysContent as any).web;
 
         if (!keys) {
             console.error('Error: Invalid OAuth keys file format. File should contain either "installed" or "web" credentials.');
             process.exit(1);
         }
+
+        oauthKeys = keys;
 
         const callback = process.argv[2] === 'auth' && process.argv[3] 
         ? process.argv[3] 
@@ -144,8 +161,53 @@ async function loadCredentials() {
 }
 
 async function authenticate() {
+    // Determine requested callback (defaults to localhost:3000)
+    const requestedCallback = process.argv[3] || "http://localhost:3000/oauth2callback";
+
+    // Parse host, path, and preferred port
+    let host = 'localhost';
+    let pathName = '/oauth2callback';
+    let preferredPort = 3000;
+    try {
+        const u = new URL(requestedCallback);
+        host = u.hostname || 'localhost';
+        pathName = u.pathname || '/oauth2callback';
+        preferredPort = u.port ? parseInt(u.port) : 3000;
+    } catch {
+        // ignore, use defaults
+    }
+
+    // Create server and try to bind to preferred port, fallback to a free port if busy
     const server = http.createServer();
-    server.listen(3000);
+    const finalPort: number = await new Promise((resolve) => {
+        const tryListen = (p: number) => {
+            server.once('error', (err: any) => {
+                if (err && err.code === 'EADDRINUSE') {
+                    // fallback to random free port
+                    tryListen(0);
+                } else {
+                    console.error('Failed to bind OAuth callback port:', err);
+                    process.exit(1);
+                }
+            });
+            server.listen(p, '127.0.0.1', () => {
+                const addr = server.address();
+                resolve(typeof addr === 'object' && addr ? addr.port : p);
+            });
+        };
+        tryListen(preferredPort);
+    });
+
+    const finalCallback = `http://${host}:${finalPort}${pathName}`;
+
+    // Recreate OAuth client with the final callback (may differ if port was busy)
+    oauth2Client = new OAuth2Client(
+        oauthKeys.client_id,
+        oauthKeys.client_secret,
+        finalCallback
+    );
+
+    console.log('Using OAuth callback:', finalCallback);
 
     return new Promise<void>((resolve, reject) => {
         const authUrl = oauth2Client.generateAuthUrl({
@@ -160,9 +222,9 @@ async function authenticate() {
         open(authUrl);
 
         server.on('request', async (req, res) => {
-            if (!req.url?.startsWith('/oauth2callback')) return;
+            if (!req.url?.startsWith(pathName)) return;
 
-            const url = new URL(req.url, 'http://localhost:3000');
+            const url = new URL(req.url, `http://${host}:${finalPort}`);
             const code = url.searchParams.get('code');
 
             if (!code) {

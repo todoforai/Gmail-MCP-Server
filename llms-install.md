@@ -11,49 +11,28 @@ This guide will help you install and configure the Gmail AutoAuth MCP server for
 
 ## Installation Steps
 
-1. First, create a Google Cloud Project and obtain the necessary credentials:
-   ```
-   1. Go to Google Cloud Console (https://console.cloud.google.com)
-   2. Create a new project or select an existing one
-   3. Enable the Gmail API for your project
-   4. Create OAuth 2.0 credentials:
-      - Go to "APIs & Services" > "Credentials"
-      - Click "Create Credentials" > "OAuth client ID"
-      - Choose "Desktop app" or "Web application" type
-      - For Web application, add http://localhost:3000/oauth2callback to redirect URIs
-      - Download the OAuth keys JSON file
-      - Rename it to gcp-oauth.keys.json
-   ```
+1. OAuth client options (end user friendly):
+   - Zero-setup: defaults to https://api.todofor.ai/gmail-oauth.json (no files needed). Override via GMAIL_OAUTH_URL.
+   - BYO keys: place gcp-oauth.keys.json locally (advanced).
 
-2. Set up the configuration directory:
-   ```bash
-   mkdir -p ~/.gmail-mcp
-   mv gcp-oauth.keys.json ~/.gmail-mcp/
-   ```
+2. Set up the configuration directory (optional when using env/url):
+```bash
+mkdir -p ~/.gmail-mcp
+# If using BYO keys:
+# mv gcp-oauth.keys.json ~/.gmail-mcp/
+```
 
 3. Run authentication:
-   ```bash
-   npx @gongrzhe/server-gmail-autoauth-mcp auth
-   ```
-   This will:
-   - Look for gcp-oauth.keys.json in current directory or ~/.gmail-mcp/
-   - Copy it to ~/.gmail-mcp/ if found in current directory
-   - Launch browser for Google authentication
-   - Save credentials as ~/.gmail-mcp/credentials.json
+```bash
+# Standard browser flow (uses bundled client if provided)
+npx @todoforai/server-gmail-autoauth-mcp auth
+```
 
-4. Configure Claude Desktop by adding the MCP server configuration:
-   ```json
-   {
-     "mcpServers": {
-       "gmail": {
-         "command": "npx",
-         "args": [
-           "@gongrzhe/server-gmail-autoauth-mcp"
-         ]
-       }
-     }
-   }
-   ```
+Notes:
+- You can still pass a custom callback URL for the standard flow:
+  npx @todoforai/server-gmail-autoauth-mcp auth https://todofor.ai/oauth2callback
+- Or for local:
+  npx @todoforai/server-gmail-autoauth-mcp auth http://localhost:3000/oauth2callback
 
 ## Troubleshooting
 

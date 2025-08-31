@@ -1,5 +1,5 @@
 {
-  "name": "@gongrzhe/server-gmail-autoauth-mcp",
+  "name": "@todoforai/server-gmail-autoauth-mcp",
   "version": "1.1.11",
   "description": "Gmail MCP server with auto authentication support",
   "type": "module",
