@@ -23,9 +23,10 @@ import { createFilter, listFilters, getFilter, deleteFilter, filterTemplates, Gm
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 // Configuration paths
+const expandTilde = (p?: string) => p ? p.replace(/^~(?=\/|$)/, os.homedir()) : undefined;
 const CONFIG_DIR = path.join(os.homedir(), '.gmail-mcp');
-const OAUTH_PATH = process.env.GMAIL_OAUTH_PATH || path.join(CONFIG_DIR, 'gcp-oauth.keys.json');
-const CREDENTIALS_PATH = process.env.GMAIL_CREDENTIALS_PATH || path.join(CONFIG_DIR, 'credentials.json');
+const OAUTH_PATH = expandTilde(process.env.GMAIL_OAUTH_PATH) || path.join(CONFIG_DIR, 'gcp-oauth.keys.json');
+const CREDENTIALS_PATH = expandTilde(process.env.GMAIL_CREDENTIALS_PATH) || path.join(CONFIG_DIR, 'credentials.json');
 
 // Type definitions for Gmail API responses
 interface GmailMessagePart {
