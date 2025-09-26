@@ -23,7 +23,28 @@ import { createFilter, listFilters, getFilter, deleteFilter, filterTemplates, Gm
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 // Configuration paths
-const expandTilde = (p?: string) => p ? p.replace(/^~(?=\/|$)/, os.homedir()) : undefined;
+const expandTilde = (p?: string) => {
+    if (!p) return undefined;
+    // Expand ~, ~/ and ~\ to home
+    let expanded = p.replace(/^~(?=\/|\\|$)/, os.homedir());
+
+    // Expand Windows-style %VAR%
+    expanded = expanded.replace(/%([^%]+)%/g, (match, varName) => {
+        const envVal = process.env[varName];
+        if (envVal) return envVal;
+        if (process.platform === 'win32' && varName.toUpperCase() === 'USERPROFILE') {
+            const home = process.env.USERPROFILE || os.homedir() || ((process.env.HOMEDRIVE || '') + (process.env.HOMEPATH || ''));
+            return home || match;
+        }
+        return match;
+    });
+
+    // Expand POSIX ${VAR} and $VAR
+    expanded = expanded.replace(/\$\{([^}]+)\}/g, (m, varName) => process.env[varName] || m);
+    expanded = expanded.replace(/\$([A-Za-z_][A-Za-z0-9_]*)/g, (m, varName) => process.env[varName] || m);
+
+    return expanded;
+};
 const CONFIG_DIR = path.join(os.homedir(), '.gmail-mcp');
 const OAUTH_PATH = expandTilde(process.env.GMAIL_OAUTH_PATH) || path.join(CONFIG_DIR, 'gcp-oauth.keys.json');
 const CREDENTIALS_PATH = expandTilde(process.env.GMAIL_CREDENTIALS_PATH) || path.join(CONFIG_DIR, 'credentials.json');
