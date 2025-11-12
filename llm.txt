@@ -1,0 +1,137 @@
+# Gmail MCP Server - LLM Context
+
+## Overview
+Gmail MCP Server provides AI assistants with Gmail integration through the Model Context Protocol (MCP). It enables sending emails, managing attachments, searching, labeling, filtering, and comprehensive Gmail operations through natural language.
+
+## Key Features
+- Send/draft emails with full attachment support (up to 25MB per email)
+- Download email attachments to local filesystem
+- HTML, plain text, and multipart email support
+- International character support
+- Advanced search with Gmail query syntax
+- Comprehensive label management (create, update, delete, list)
+- Gmail filter management with templates
+- Batch operations for bulk email processing
+- OAuth2 authentication with auto browser launch
+
+## Installation & Setup
+```bash
+# Install
+npm install @todoforai/server-gmail-autoauth-mcp
+
+# Authenticate (required first step)
+npx @todoforai/server-gmail-autoauth-mcp auth
+
+# Configure in Claude Desktop
+{
+  "mcpServers": {
+    "gmail": {
+      "command": "npx",
+      "args": ["@todoforai/server-gmail-autoauth-mcp"]
+    }
+  }
+}
+```
+
+## Authentication Methods
+1. **Zero-setup (recommended)**: Uses maintainer-provided OAuth client from https://api.todofor.ai/gmail-oauth.json
+2. **BYO keys**: Place your own `gcp-oauth.keys.json` in current directory or `~/.gmail-mcp/`
+3. **Custom URL**: Set `GMAIL_OAUTH_URL` environment variable
+
+## File Locations
+- OAuth keys: `~/.gmail-mcp/gcp-oauth.keys.json` or `./gcp-oauth.keys.json`
+- Stored credentials: `~/.gmail-mcp/credentials.json`
+- Config directory: `~/.gmail-mcp/`
+
+## Common Authentication Errors & Solutions
+
+### Error: "No access, refresh token, API key or refresh handler callback is set"
+
+This error indicates the Gmail MCP server cannot authenticate with Google's API. Here's how to fix it:
+
+#### Step 1: Run Authentication
+```bash
+npx @todoforai/server-gmail-autoauth-mcp auth
+```
+
+#### Step 2: If auth fails, check these common issues:
+
+**A. Missing or Invalid OAuth Keys**
+- Ensure `gcp-oauth.keys.json` exists in current directory or `~/.gmail-mcp/`
+- File should contain either `"installed"` or `"web"` credentials from Google Cloud Console
+- If using zero-setup, ensure internet connection for fetching keys from API
+
+**B. Corrupted Credentials**
+```bash
+# Remove old credentials and re-authenticate
+rm ~/.gmail-mcp/credentials.json
+npx @todoforai/server-gmail-autoauth-mcp auth
+```
+
+**C. Port Issues During Auth**
+- Ensure port 3000 is available during authentication
+- Kill any processes using port 3000: `lsof -ti:3000 | xargs kill -9`
+
+**D. Permission Issues**
+```bash
+# Ensure config directory has proper permissions
+chmod 755 ~/.gmail-mcp
+chmod 600 ~/.gmail-mcp/credentials.json
+```
+
+#### Step 3: Verify Setup
+After successful authentication, credentials are stored at `~/.gmail-mcp/credentials.json`. This file should contain:
+- access_token
+- refresh_token  
+- scope
+- token_type
+- expiry_date
+
+#### Step 4: Restart MCP Client
+After authentication, restart Claude Desktop or your MCP client to pick up the new credentials.
+
+## Environment Variables
+- `GMAIL_OAUTH_PATH`: Custom path to OAuth keys file
+- `GMAIL_CREDENTIALS_PATH`: Custom path to store credentials
+- `GMAIL_OAUTH_URL`: Custom URL to fetch OAuth keys (defaults to maintainer endpoint)
+
+## Cloud/Server Authentication
+For cloud environments where localhost isn't accessible:
+```bash
+npx @todoforai/server-gmail-autoauth-mcp auth https://your-domain.com/oauth2callback
+```
+
+## Available Tools
+- `send_email` - Send emails with optional attachments
+- `draft_email` - Create email drafts
+- `read_email` - Read email content with attachment info
+- `download_attachment` - Download email attachments locally
+- `search_emails` - Search using Gmail syntax
+- `modify_email` - Add/remove labels
+- `delete_email` - Permanently delete emails
+- `list_email_labels` - List all Gmail labels
+- `create_label`, `update_label`, `delete_label` - Label management
+- `get_or_create_label` - Find or create labels
+- `batch_modify_emails`, `batch_delete_emails` - Bulk operations
+- `create_filter`, `list_filters`, `get_filter`, `delete_filter` - Filter management
+- `create_filter_from_template` - Use pre-built filter templates
+
+## Security Notes
+- OAuth credentials stored securely in `~/.gmail-mcp/`
+- Uses offline access for persistent authentication
+- Never commit credentials to version control
+- Attachment files processed locally, never stored permanently
+- Regular review of Google Account permissions recommended
+
+## Troubleshooting Tips
+1. Always run `auth` command first before using any tools
+2. Check file permissions on config directory and credentials
+3. Ensure stable internet connection during authentication
+4. For Docker setups, mount credentials volume properly
+5. Verify Google Cloud Console OAuth settings if using custom keys
+6. Check Gmail API quotas if experiencing rate limiting
+
+## Support
+- GitHub: https://github.com/gongrzhe/server-gmail-autoauth-mcp
+- Issues: File on GitHub repository
+- Documentation: README.md in repository
